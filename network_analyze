@@ -1,0 +1,54 @@
+pip install japanize-matplotlib
+
+import json
+import matplotlib.pyplot as plt
+import japanize_matplotlib
+import networkx as nx
+from community import community_louvain
+import community
+
+#ファイルをダウンロードする関数
+def download(file_name):
+  with open("/content/drive/My Drive/"+file_name+".json") as f:
+  return json.load(f)
+
+node_name = download("node_name")
+node_count = download("node_count")
+name_A = download("node_name")
+name_B = download("node_name")
+
+G = nx.Graph()
+for i in len(node_name):
+  G.add_node(node_name[i],
+             count = node_count[i],
+             name = node_name[i])
+             
+del name_A[-1]
+del name_B[0]
+for a in name_A:
+  for b in name_B:
+     G.add_edge(alpha,beta)
+  del name_beta[0]
+  
+#次数(繋がるエッジの数)によってノードを消すことができる
+'''
+for name,deg in list(G.degree):
+  if deg <= 1:
+    G.remove_node(name)
+'''
+
+plt.figure(figsize=(15,15))
+pos = nx.spring_layout(G, k=0.2)
+deg = nx.degree_centrality(G).values()
+partition=community.best_partition(G)
+nx.draw_networkx(G, pos, with_labels=True,font_family="IPAexGothic",font_size=11)
+cliques = nx.find_cliques(G)
+
+node_size = [ d["count"]**1.1 for (n,d) in G.nodes(data=True)]    
+nx.draw_networkx_nodes(G, pos, node_size=node_size,
+                       node_color=list(partition.values()),
+                       cmap=plt.cm.RdYlBu
+                       )      
+
+plt.axis('off')
+plt.show()
