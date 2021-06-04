@@ -1,0 +1,73 @@
+pip install google-auth
+pip install google-api-python-client
+
+import json
+#認証情報をディレクトリに用意する
+with open("/content/drive/MyDrive/credentials.json") as f:
+  credentials = json.load(f)
+with open("credentials.json","w") as f:
+  json.dump(credentials,f,indent=4,ensure_ascii=False)
+  
+import os.path
+from googleapiclient.discovery import build
+import google.auth
+import io
+from apiclient.http import MediaIoBaseDownload
+#認証コード
+SCOPES = ["https://www.googleapis.com/auth/drive"]
+scoped, project = google.auth.load_credentials_from_file("/content/credentials.json",scopes=SCOPES)
+service = build("drive", "v3", credentials=scoped)
+
+#ファイルのIDをサーチ
+def searching(searchName):
+  search = service.files().list(
+    q = searchName,
+    fields = "files(id)"
+    ).execute()
+  fileId = [i["id"] for i in search["files"]]
+  return fileId
+
+#ファイルをダウンロード
+def downloading(fileid):
+  download = service.files().get_media(fileId=fileid)
+  fh = io.BytesIO()
+  downloader = MediaIoBaseDownload(fh, download)
+  done = False
+  while done is False:
+    status, done = downloader.next_chunk()
+  content = fh.getvalue().decode("utf-8").split(" ")
+  return content
+
+def uploading(uploadName,fileid,content):#ファイルをアップロード
+  metadata = {
+    "name": uploadName,
+    "parents": [fileid]
+    }
+  fh = io.BytesIO(content)
+  media = MediaIoBaseUpload(fh, mimetype='application/json')
+  upload = service.files().create(
+    body = metadata,
+    media_body=media
+    ).execute()
+
+#フォルダ下にファイルを作成
+def creating(createName,fileid):
+  file_metadata = {
+    'name':createName,
+    'parents':[fileid],
+    'mimeType': 'application/vnd.google-apps.folder'
+    }
+  created = drive_service.files().create(
+    body = file_metadata
+    ).execute()
+
+#ファイルに編集権限を与える
+def permissioning(str(MAIL_ADDRESS),fileid):
+  user_permission = {
+    'type': 'user',
+    'role': 'writer',
+    'emailAddress': 'MAIL_ADDRESS'
+  }
+  permission = service.permissions().create(fileId=fileid,
+                                            body=user_permission,
+                                            fields='id').execute()
