@@ -50,7 +50,7 @@ def uploading(uploadName,fileid,content):#ファイルをアップロード
     media_body=media
     ).execute()
 
-#フォルダ下にファイルを作成
+#フォルダ下にフォルダを作成
 def creating(createName,fileid):
   file_metadata = {
     'name':createName,
