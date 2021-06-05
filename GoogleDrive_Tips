@@ -21,7 +21,7 @@ service = build("drive", "v3", credentials=scoped)
 #ファイルのIDをサーチ
 def searching(searchName):
   search = service.files().list(
-    q = searchName,
+    q = 'name="'+searchName+'"',
     fields = "files(id)"
     ).execute()
   fileId = [i["id"] for i in search["files"]]
@@ -38,7 +38,8 @@ def downloading(fileid):
   content = fh.getvalue().decode("utf-8").split(" ")
   return content
 
-def uploading(uploadName,fileid,content):#ファイルをアップロード
+#ファイルをアップロード
+def uploading(uploadName,fileid,content):
   metadata = {
     "name": uploadName,
     "parents": [fileid]
