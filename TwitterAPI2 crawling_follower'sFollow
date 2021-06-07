@@ -47,7 +47,7 @@ service = build("drive", "v3", credentials=scoped)
 
 #pubsubへ送るコード
 def publishing(destination,content):
-  topic_path = publisher.topic_path("project2434",destination)
+  topic_path = publisher.topic_path("project_name",destination)
   data = str(content)
   data = data.encode("utf-8")
   publisher.publish(topic_path,data)
@@ -94,9 +94,9 @@ def uploading(uploadName,fileid,content):
   return u_fileId
 
 #フォルダ下にフォルダを作成
-def foldering(createName,fileid):
+def foldering(folderName,fileid):
   file_metadata = {
-    'name':createName,
+    'name':folderName,
     'parents':[fileid],
     'mimeType': 'application/vnd.google-apps.folder'
     }
