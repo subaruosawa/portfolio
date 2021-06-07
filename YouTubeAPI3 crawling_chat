@@ -1,0 +1,204 @@
+#想定環境:Google Cloud Functions
+---
+requests
+beautifulsoup4
+google-cloud-pubsub
+google-auth
+google-api-python-client
+---
+#credentilals.json
+{
+  "type": "service_account",
+  "project_id": "project_id",
+  "private_key_id": "private_key_id",
+  "private_key": "private_key",
+  "client_email": "client_email",
+  "client_id": "client_id",
+  "auth_uri": "auth_uri",
+  "token_uri": "token_uri",
+  "auth_provider_x509_cert_url": "auth_provider_x509_cert_url",
+  "client_x509_cert_url": "client_x509_cert_url"
+}
+---
+#main.py
+import base64
+import json
+from google.cloud import pubsub_v1
+import os.path
+from googleapiclient.discovery import build
+import google.auth
+import io
+from apiclient.http import MediaIoBaseDownload
+from apiclient.http import MediaIoBaseUpload
+import requests
+from bs4 import BeautifulSoup
+import datetime
+import dateutil.parser
+
+publisher = pubsub_v1.PublisherClient()
+SCOPES = ["https://www.googleapis.com/auth/drive"]
+scoped, project = google.auth.load_credentials_from_file("/workspace/credentials.json",scopes=SCOPES)
+service = build("drive", "v3", credentials=scoped)
+
+#pubsubへ送るコード
+def publishing(destination,content):
+  topic_path = publisher.topic_path("project_name",destination)
+  data = str(content)
+  data = data.encode("utf-8")
+  publisher.publish(topic_path,data)
+
+#ファイルのIDをサーチ
+def searching(fileName):
+  search = service.files().list(
+    q = 'name="'+fileName+'"',
+    fields = "files(id)"
+    ).execute()
+  fileId = [i["id"] for i in search["files"]]
+  return fileId
+
+#ファイルをダウンロード
+def downloading(fileid):
+  download = service.files().get_media(fileId=fileid)
+  fh = io.BytesIO()
+  downloader = MediaIoBaseDownload(fh, download)
+  done = False
+  while done is False:
+    status, done = downloader.next_chunk()
+  content = fh.getvalue().decode("utf-8").split(" ")
+  return content
+
+#ファイルをアップロード
+def uploading(uploadName,fileid,content):
+  metadata = {
+    "name": uploadName,
+    "parents": [fileid]
+    }
+  str_content = []  
+  for i in content:
+    str_content.append(str(i))
+  joins = " ".join(str_content)
+  encoder = joins.encode('utf-8')
+  fh = io.BytesIO(encoder)
+  media = MediaIoBaseUpload(fh, mimetype='application/json')
+  upload = service.files().create(
+    body = metadata,
+    media_body=media,
+    fields='id'
+    ).execute()
+  u_fileId = upload["id"]
+  return u_fileId
+
+#フォルダ下にフォルダを作成
+def foldering(folderName,fileid):
+  file_metadata = {
+    'name':folderName,
+    'parents':[fileid],
+    'mimeType': 'application/vnd.google-apps.folder'
+    }
+  folder = service.files().create(
+    body = file_metadata,
+    fields='id'
+    ).execute()
+  f_fileId = folder["id"]
+  return f_fileId
+
+#ファイルに編集権限を与える
+def permissioning(fileid):
+  user_permission = {
+    'type': 'user',
+    'role': 'writer',
+    'emailAddress': 'emailAddress'
+  }
+  permission = service.permissions().create(
+      fileId=fileid,
+      body=user_permission,
+      fields='id'
+      ).execute()
+      
+#ファイルを更新する      
+def updating(content,fileid):
+  str_content = []  
+  for i in content:
+    str_content.append(str(i))
+  joins = " ".join(str_content)
+  encoder = joins.encode("utf-8")
+  fh = io.BytesIO(encoder)
+  media = MediaIoBaseUpload(fh, mimetype="application/json")
+  updated = service.files().update(
+    fileId=fileid,
+    fields='id',
+    media_body=media
+    ).execute()
+  d_fileId = upload["id"]
+  return d_fileId
+ 
+def hello_pubsub(event, context):
+  pubsub_message = base64.b64decode(event['data']).decode('utf-8')
+  channelId = pubsub_message[:24]
+  videoId = pubsub_message[24:35]
+  continuation = pubsub_message[35:171]
+  order = int(pubsub_message[171:])
+
+  target_url = "https://www.youtube.com/live_chat_replay?continuation="+continuation
+  session = requests.Session()
+  headers = {'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.116 Safari/537.36'}
+  html = session.get(target_url, headers=headers)
+  soup = BeautifulSoup(html.text, 'html.parser')
+
+  for script in soup.find_all('script'):
+    script_text = str(script)
+      if 'ytInitialData' in script_text:
+        for line in script_text.splitlines():
+          if 'ytInitialData' in line:
+            if 'window["ytInitialData"] =' in line:
+              if line[26] == "{" and line[-2] == "}":
+                ytInitialData = json.loads(line[26:-1])
+              elif line[65] == "{" and line[-11] == "}":
+                ytInitialData = json.loads(line[65:-10])
+              else:
+                InitialData = str(line).encode("utf-8")
+                s_fileId = (videoId)
+                u_fileId = (videoId+"_ContinuationData.json",s_fileId,InitialData)
+                permissioning(u_fileId)
+
+  authorId = []
+  timestampUsec = []
+  if not "actions" in ytInitialData["continuationContents"]["liveChatContinuation"]:
+    ContinuationActions = ytInitialData["continuationContents"]["liveChatContinuation"].encode("utf-8")
+    s_fileId = searching(videoId)
+    u_fileId = uploading(videoId+"_ContinuationActions.json",s_fileId,ContinuationActions)
+    permissioning(u_fileId)
+
+  elif "actions" in ytInitialData["continuationContents"]["liveChatContinuation"]:
+    for i in ytInitialData["continuationContents"]["liveChatContinuation"]["actions"][1:]:
+      for k,v in i["replayChatItemAction"]["actions"][0].items():
+        if k == "addChatItemAction":
+          for kk,vv in i["replayChatItemAction"]["actions"][0]["addChatItemAction"]["item"].items():
+            if kk == "liveChatTextMessageRenderer":
+              for kkk,vvv in i["replayChatItemAction"]["actions"][0]["addChatItemAction"]["item"]["liveChatTextMessageRenderer"].items():
+                if kkk == "authorExternalChannelId":
+                  authorId.append(vvv)
+                elif kkk == "timestampUsec":
+                  timestampUsec.append(vvv)
+        elif k == "addLiveChatTickerItemAction":
+          for kk,vv in i["replayChatItemAction"]["actions"][0]["addLiveChatTickerItemAction"]["item"].items():
+            if kk == "liveChatTickerPaidMessageItemRenderer":
+              for kkk,vvv in i["replayChatItemAction"]["actions"][0]["addLiveChatTickerItemAction"]["item"]["liveChatTickerPaidMessageItemRenderer"].items():
+                if kkk == "authorExternalChannelId":
+                  authorId.append(vvv)
+                elif kkk == "timestampUsec":
+                  timestampUsec.append(vvv)
+    connect = authorId+timestampUsec
+          
+    s_fileId = searching(videoId+"_chat")
+    u_fileId = uploading(videoId+"_storage"+order+".json",s_fileId,connect)
+    permissioning(u_fileId)
+     
+  if ytInitialData["continuationContents"]["liveChatContinuation"]["continuations"][0]["liveChatReplayContinuationData"]["continuation"]:
+    continuation = ytInitialData["continuationContents"]["liveChatContinuation"]["continuations"][0]["liveChatReplayContinuationData"]["continuation"]
+    order = order+1
+    publishing("continuation",channelId+videoId+continuation+str(order))
+    
+  elif not ytInitialData["continuationContents"]["liveChatContinuation"]["continuations"][0]["liveChatReplayContinuationData"]["continuation"]:
+    data = channelId+videoId
+    publishing("finish",data)
