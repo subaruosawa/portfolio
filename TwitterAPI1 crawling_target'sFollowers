@@ -1,0 +1,126 @@
+#想定環境:Google Colaboratory
+---
+pip install google-auth
+pip install google-api-python-client
+---
+import json
+with open("/content/drive/MyDrive/credentials.json") as f:
+  credentials = json.load(f)
+with open("credentials.json","w") as f:
+  json.dump(credentials,f,indent=4,ensure_ascii=False)
+---  
+import os.path
+from googleapiclient.discovery import build
+import google.auth
+import io
+from apiclient.http import MediaIoBaseDownload
+#認証コード
+SCOPES = ["https://www.googleapis.com/auth/drive"]
+scoped, project = google.auth.load_credentials_from_file("/content/credentials.json",scopes=SCOPES)
+service = build("drive", "v3", credentials=scoped)
+---
+#ファイルのIDをサーチ
+def searching(fileName):
+  search = service.files().list(
+    q = 'name="'+fileName+'"',
+    fields = "files(id)"
+    ).execute()
+  fileId = [i["id"] for i in search["files"]]
+  return fileId
+
+#ファイルをダウンロード
+def downloading(fileid):
+  download = service.files().get_media(fileId=fileid)
+  fh = io.BytesIO()
+  downloader = MediaIoBaseDownload(fh, download)
+  done = False
+  while done is False:
+    status, done = downloader.next_chunk()
+  content = fh.getvalue().decode("utf-8").split(" ")
+  return content
+
+#ファイルをアップロード
+def uploading(uploadName,fileid,content):
+  metadata = {
+    "name": uploadName,
+    "parents": [fileid]
+    }
+  fh = io.BytesIO(content)
+  media = MediaIoBaseUpload(fh, mimetype='application/json')
+  upload = service.files().create(
+    body = metadata,
+    media_body=media,
+    fields='id'
+    ).execute()
+  u_fileId = upload["id"]
+  return u_fileId
+
+#フォルダ下にフォルダを作成
+def foldering(createName,fileid):
+  file_metadata = {
+    'name':createName,
+    'parents':[fileid],
+    'mimeType': 'application/vnd.google-apps.folder'
+    }
+  folder = drive_service.files().create(
+    body = file_metadata,
+    fields='id'
+    ).execute()
+  f_fileId = folder["id"]
+  return f_fileId
+
+#ファイルに編集権限を与える
+def permissioning(fileid):
+  user_permission = {
+    'type': 'user',
+    'role': 'writer',
+    'emailAddress': 'masu.0107.13.roxas@gmail.com'
+  }
+  permission = service.permissions().create(
+      fileId=fileid,
+      body=user_permission,
+      fields='id'
+      ).execute()
+---      
+import time
+from requests_oauthlib import OAuth1Session
+CONSUMER_KEY = "CONSUMER_KEY"
+CONSUMER_SECRET = "CONSUMER_SECRET"
+ACCESS_TOKEN = "ACCESS_TOKEN"
+ACCESS_TOKEN_SECRET = "ACCESS_TOKEN_SECRET"
+twitter = OAuth1Session(CONSUMER_KEY,CONSUMER_SECRET,ACCESS_TOKEN,ACCESS_TOKEN_SECRET)
+url = "https://api.twitter.com/1.1/followers/ids.json"
+---
+next_cursor = [None]
+ids = []
+while not next_cursor[-1] == 0:
+  params = {"screen_name":"@screen_name",
+            "cursor":next_cursor[-1],
+            "count":5000
+            }
+  twitter = OAuth1Session(CONSUMER_KEY,CONSUMER_SECRET,ACCESS_TOKEN,ACCESS_TOKEN_SECRET)
+  r = twitter.get(url,params=params)
+
+  if "errors" in r.json():
+    print(str(r.json()))
+    time.sleep(960)
+
+  elif not "errors" in r.json():
+    data = r.json()
+      
+    if data["ids"]:
+      for i in data["ids"]:
+        ids.append(i)
+    elif not data["ids"]:
+      print(data["ids"])
+
+    if data["next_cursor"] != 0:
+      next_cursor.append(data["next_cursor"])
+    elif data["next_cursor"] == 0:
+      next_cursor.append(data["next_cursor"])
+      print(data["next_cursor"])
+      
+      
+  s_fileId = searching("filename")
+  u_fileId = uploading("anycolor_followers",s_fileId,ids)
+  permissioning(u_fileId)
