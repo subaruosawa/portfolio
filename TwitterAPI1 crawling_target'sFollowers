@@ -62,9 +62,9 @@ def uploading(uploadName,fileid,content):
   return u_fileId
 
 #フォルダ下にフォルダを作成
-def foldering(createName,fileid):
+def foldering(folderName,fileid):
   file_metadata = {
-    'name':createName,
+    'name':folderName,
     'parents':[fileid],
     'mimeType': 'application/vnd.google-apps.folder'
     }
@@ -125,8 +125,7 @@ while not next_cursor[-1] == 0:
     elif data["next_cursor"] == 0:
       next_cursor.append(data["next_cursor"])
       print(data["next_cursor"])
-      
-      
+         
   s_fileId = searching("filename")
   u_fileId = uploading("anycolor_followers",s_fileId,ids)
   permissioning(u_fileId)
