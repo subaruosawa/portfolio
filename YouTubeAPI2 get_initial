@@ -158,7 +158,7 @@ def hello_pubsub(event, context):
   if "conversationBar" in ytInitialData["contents"]["twoColumnWatchNextResults"]:
     continuation = ytInitialData["contents"]["twoColumnWatchNextResults"]["conversationBar"]["liveChatRenderer"]["header"]["liveChatHeaderRenderer"]["viewSelector"]["sortFilterSubMenuRenderer"]["subMenuItems"][0]["continuation"]["reloadContinuationData"]["continuation"]
     
-    publisher("continuation",channelId+videoId+continuation+"0")
+    publishing("continuation",channelId+videoId+continuation+"0")
     s_fileId = searching(channelId)
     f_fileId = foldering(videoId+"_chat",s_fileId)
     permissioning(f_fileId)
