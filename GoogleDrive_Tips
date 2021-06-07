@@ -55,7 +55,7 @@ def uploading(uploadName,fileid,content):
   upload = service.files().create(
     body = metadata,
     media_body=media,
-    fields='id'
+    fields="id"
     ).execute()
   u_fileId = upload["id"]
   return u_fileId
@@ -93,5 +93,8 @@ def updating(content,fileid):
   media = MediaIoBaseUpload(fh, mimetype="application/json")
   updated = service.files().update(
     fileId=fileid,
+    fields="id",
     media_body=media
     ).execute()
+  d_fileId = updated["id"]
+  return d_fileId
