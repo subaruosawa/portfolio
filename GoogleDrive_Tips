@@ -13,6 +13,7 @@ from googleapiclient.discovery import build
 import google.auth
 import io
 from apiclient.http import MediaIoBaseDownload
+from apiclient.http import MediaIoBaseUpload
 #認証コード
 SCOPES = ["https://www.googleapis.com/auth/drive"]
 scoped, project = google.auth.load_credentials_from_file("/content/credentials.json",scopes=SCOPES)
@@ -44,12 +45,20 @@ def uploading(uploadName,fileid,content):
     "name": uploadName,
     "parents": [fileid]
     }
-  fh = io.BytesIO(content)
+  str_content = []  
+  for i in content:
+    str_content.append(str(i))
+  joins = " ".join(str_content)
+  encoder = joins.encode('utf-8')
+  fh = io.BytesIO(encoder)
   media = MediaIoBaseUpload(fh, mimetype='application/json')
   upload = service.files().create(
     body = metadata,
-    media_body=media
+    media_body=media,
+    fields='id'
     ).execute()
+  u_fileId = upload["id"]
+  return u_fileId
 
 #フォルダ下にフォルダを作成
 def creating(createName,fileid):
