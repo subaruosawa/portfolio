@@ -1,0 +1,163 @@
+#想定環境:Google Cloud Functions
+---
+requests
+beautifulsoup4
+google-cloud-pubsub
+python-dateutil
+google-auth
+google-api-python-client
+---
+#credentilals.json
+{
+  "type": "service_account",
+  "project_id": "project_id",
+  "private_key_id": "private_key_id",
+  "private_key": "private_key",
+  "client_email": "client_email",
+  "client_id": "client_id",
+  "auth_uri": "auth_uri",
+  "token_uri": "token_uri",
+  "auth_provider_x509_cert_url": "auth_provider_x509_cert_url",
+  "client_x509_cert_url": "client_x509_cert_url"
+}
+---  
+#main.py
+import base64
+import json
+from google.cloud import pubsub_v1
+import os.path
+from googleapiclient.discovery import build
+import google.auth
+import io
+from apiclient.http import MediaIoBaseDownload
+from apiclient.http import MediaIoBaseUpload
+import requests
+from bs4 import BeautifulSoup
+import datetime
+import dateutil.parser
+
+publisher = pubsub_v1.PublisherClient()
+SCOPES = ["https://www.googleapis.com/auth/drive"]
+scoped, project = google.auth.load_credentials_from_file("/workspace/credentials.json",scopes=SCOPES)
+service = build("drive", "v3", credentials=scoped)
+
+#pubsubへ送るコード
+def publishing(destination,content):
+  topic_path = publisher.topic_path("project_name",destination)
+  data = str(content)
+  data = data.encode("utf-8")
+  publisher.publish(topic_path,data)
+
+#ファイルのIDをサーチ
+def searching(fileName):
+  search = service.files().list(
+    q = 'name="'+fileName+'"',
+    fields = "files(id)"
+    ).execute()
+  fileId = [i["id"] for i in search["files"]]
+  return fileId
+
+#ファイルをダウンロード
+def downloading(fileid):
+  download = service.files().get_media(fileId=fileid)
+  fh = io.BytesIO()
+  downloader = MediaIoBaseDownload(fh, download)
+  done = False
+  while done is False:
+    status, done = downloader.next_chunk()
+  content = fh.getvalue().decode("utf-8").split(" ")
+  return content
+
+#ファイルをアップロード
+def uploading(uploadName,fileid,content):
+  metadata = {
+    "name": uploadName,
+    "parents": [fileid]
+    }
+  str_content = []  
+  for i in content:
+    str_content.append(str(i))
+  joins = " ".join(str_content)
+  encoder = joins.encode('utf-8')
+  fh = io.BytesIO(encoder)
+  media = MediaIoBaseUpload(fh, mimetype='application/json')
+  upload = service.files().create(
+    body = metadata,
+    media_body=media,
+    fields='id'
+    ).execute()
+  u_fileId = upload["id"]
+  return u_fileId
+
+#フォルダ下にフォルダを作成
+def foldering(folderName,fileid):
+  file_metadata = {
+    'name':folderName,
+    'parents':[fileid],
+    'mimeType': 'application/vnd.google-apps.folder'
+    }
+  folder = service.files().create(
+    body = file_metadata,
+    fields='id'
+    ).execute()
+  f_fileId = folder["id"]
+  return f_fileId
+
+#ファイルに編集権限を与える
+def permissioning(fileid):
+  user_permission = {
+    'type': 'user',
+    'role': 'writer',
+    'emailAddress': 'emailAddress'
+  }
+  permission = service.permissions().create(
+      fileId=fileid,
+      body=user_permission,
+      fields='id'
+      ).execute()
+    
+def hello_pubsub(event, context):
+  channelId = base64.b64decode(event['data']).decode('utf-8')
+
+  target_url = "https://www.youtube.com/feeds/videos.xml?channel_id="+channelId
+  req = requests.get(target_url)
+  soup = BeautifulSoup(req.text, 'html.parser')
+
+  elems = soup.find_all("yt:videoid")
+  videoId = []
+  for elem in elems[1:]:
+    videoId.append(elem.contents[0])
+
+  elems = soup.find_all("title")
+  title = []
+  for elem in elems[1:]:
+    title.append(elem.contents[0])
+
+  elems = soup.find_all("updated")
+  iso_updated = []
+  for elem in elems:
+    iso_updated.append(elem.contents[0])
+
+  JST = datetime.timezone(datetime.timedelta(hours=+9), 'JST')
+  now = datetime.datetime.now(JST)
+  dt_updated = []
+  for n in range(len(iso_updated)):
+    dt_updated.append(dateutil.parser.parse(iso_updated[n]).astimezone(JST))
+
+  s_fileId = searching(channelId+"_archives.json")
+  archives = downloading(s_fileId)
+
+  for n in range(len(videoId)):
+    oneday = now - dt_updated[n]
+    if oneday > datetime.timedelta(days=1):
+      if not videoId[n] in archives:
+        publishing("videoId",channelId+videoId[n])
+        #archives
+        archives.append(videoId[n])
+        #folder
+        s_fileId = searching("parentFolder")
+        foldering(videoId[n],s_fileId)
+
+  Q = 'name = "'+channelId+'"'
+  s_fileId = searching("channelId")
+  updating(archives,channelId+"_archives.json",fileId)
