@@ -127,8 +127,11 @@ def updating(content,fileid):
   media = MediaIoBaseUpload(fh, mimetype="application/json")
   updated = service.files().update(
     fileId=fileid,
+    fields='id',
     media_body=media
     ).execute()
+  d_fileId = upload["id"]
+  return d_fileId
     
 def hello_pubsub(event, context):
   channelId = base64.b64decode(event['data']).decode('utf-8')
@@ -175,4 +178,5 @@ def hello_pubsub(event, context):
 
   Q = 'name = "'+channelId+'"'
   s_fileId = searching("channelId")
-  updating(archives,s_fileId)
+  d_fileId = updating(archives,s_fileId)
+  permissioning(d_fileId)
