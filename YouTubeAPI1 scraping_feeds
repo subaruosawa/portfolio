@@ -115,6 +115,20 @@ def permissioning(fileid):
       body=user_permission,
       fields='id'
       ).execute()
+      
+#ファイルを更新する      
+def updating(content,fileid):
+  str_content = []  
+  for i in content:
+    str_content.append(str(i))
+  joins = " ".join(str_content)
+  encoder = joins.encode("utf-8")
+  fh = io.BytesIO(encoder)
+  media = MediaIoBaseUpload(fh, mimetype="application/json")
+  updated = service.files().update(
+    fileId=fileid,
+    media_body=media
+    ).execute()
     
 def hello_pubsub(event, context):
   channelId = base64.b64decode(event['data']).decode('utf-8')
@@ -156,8 +170,9 @@ def hello_pubsub(event, context):
         archives.append(videoId[n])
         #folder
         s_fileId = searching("parentFolder")
-        foldering(videoId[n],s_fileId)
+        f_fileId = foldering(videoId[n],s_fileId)
+        permissioning(f_fileId)
 
   Q = 'name = "'+channelId+'"'
   s_fileId = searching("channelId")
-  updating(archives,channelId+"_archives.json",fileId)
+  updating(archives,s_fileId)
