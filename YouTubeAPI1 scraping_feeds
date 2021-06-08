@@ -1,5 +1,13 @@
+  
+#このコードは、「YouTubeのFeedsページにアクセスし、新しく投稿された動画のIDを取得する」ものです。
+#前半はGoogleDrive_Tipsで載せた、ドライブ連携で必要なコードを書いています。
+#---
+#---
+#---のように、3列続いた区切り線より下部が本題の内容です。
 #想定環境:Google Cloud Functions
 ---
+#requirements.txt
+#今回必要なパッケージ
 requests
 beautifulsoup4
 google-cloud-pubsub
@@ -8,6 +16,7 @@ google-auth
 google-api-python-client
 ---
 #credentilals.json
+#Google認証情報を用意
 {
   "type": "service_account",
   "project_id": "project_id",
@@ -36,7 +45,9 @@ from bs4 import BeautifulSoup
 import datetime
 import dateutil.parser
 
+#pubsubの前準備
 publisher = pubsub_v1.PublisherClient()
+#Google認証コード
 SCOPES = ["https://www.googleapis.com/auth/drive"]
 scoped, project = google.auth.load_credentials_from_file("/workspace/credentials.json",scopes=SCOPES)
 service = build("drive", "v3", credentials=scoped)
@@ -132,19 +143,25 @@ def updating(content,fileid):
     ).execute()
   d_fileId = upload["id"]
   return d_fileId
-    
-def hello_pubsub(event, context):
-  channelId = base64.b64decode(event['data']).decode('utf-8')
+---
+---
+---
 
-  target_url = "https://www.youtube.com/feeds/videos.xml?channel_id="+channelId
+def hello_pubsub(event, context):
+  pubsub_message = base64.b64decode(event['data']).decode('utf-8')#pubsubから送られてくるチャンネルIDを確認
+  channelId = pubsub_message
+
+  target_url = "https://www.youtube.com/feeds/videos.xml?channel_id="+channelId#YouTubeのFeedsページへアクセス
   req = requests.get(target_url)
   soup = BeautifulSoup(req.text, 'html.parser')
 
+  #ビデオIDを取得
   elems = soup.find_all("yt:videoid")
   videoId = []
   for elem in elems[1:]:
     videoId.append(elem.contents[0])
-
+  
+  #タイトルを取得
   elems = soup.find_all("title")
   title = []
   for elem in elems[1:]:
