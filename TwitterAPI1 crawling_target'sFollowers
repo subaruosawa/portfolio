@@ -1,8 +1,14 @@
+#このコードは、「APIを使って調べたいTwitterアカウントのフォロワーを取得する」ものです。
+#前半はGoogleDrive_Tipsで載せた、ドライブ連携で必要なコードを書いています
+#---
+#---
+#---のように、3列続いた区切り線より下部が本題の内容です。
 #想定環境:Google Colaboratory
 ---
 pip install google-auth
 pip install google-api-python-client
 ---
+##認証情報をディレクトリに用意します。
 import json
 with open("/content/drive/MyDrive/credentials.json") as f:
   credentials = json.load(f)
@@ -87,27 +93,33 @@ def permissioning(fileid):
       body=user_permission,
       fields='id'
       ).execute()
----      
+---
+---
+---
 import time
+#下記がTwitterAPIの認証コードです。
 from requests_oauthlib import OAuth1Session
 CONSUMER_KEY = "CONSUMER_KEY"
 CONSUMER_SECRET = "CONSUMER_SECRET"
 ACCESS_TOKEN = "ACCESS_TOKEN"
 ACCESS_TOKEN_SECRET = "ACCESS_TOKEN_SECRET"
 twitter = OAuth1Session(CONSUMER_KEY,CONSUMER_SECRET,ACCESS_TOKEN,ACCESS_TOKEN_SECRET)
-url = "https://api.twitter.com/1.1/followers/ids.json"
+url = "https://api.twitter.com/1.1/followers/ids.json"#こちらで取得する情報を”フォロワー”に指定します。
 ---
+#下記のコードでフォロワーを継続的に取得します。
+#TwitterAPIは15分毎に使用制限がかかりますので、それに引っかかった際は960秒間sleepさせます。
+#一回のリクエストで5000件取得でき、それと一緒に次の5000件を指定できるネクストページトークンを取得できます。
 next_cursor = [None]
 ids = []
 while not next_cursor[-1] == 0:
-  params = {"screen_name":"@screen_name",
-            "cursor":next_cursor[-1],
-            "count":5000
+  params = {"screen_name":"@screen_name",#ここで調べたいアカウントを指定
+            "cursor":next_cursor[-1],#ネクストページトークンを指定
+            "count":5000#取得する数
             }
   twitter = OAuth1Session(CONSUMER_KEY,CONSUMER_SECRET,ACCESS_TOKEN,ACCESS_TOKEN_SECRET)
   r = twitter.get(url,params=params)
 
-  if "errors" in r.json():
+  if "errors" in r.json():#使用制限に引っかかり、エラーを検知した場合は960秒間sleep
     print(str(r.json()))
     time.sleep(960)
 
@@ -119,13 +131,16 @@ while not next_cursor[-1] == 0:
         ids.append(i)
     elif not data["ids"]:
       print(data["ids"])
-
+    
+    #通常、ネクストページトークンは数字の羅列が渡されますが、次のネクストページトークンがない場合、0が渡されます。
     if data["next_cursor"] != 0:
       next_cursor.append(data["next_cursor"])
     elif data["next_cursor"] == 0:
       next_cursor.append(data["next_cursor"])
       print(data["next_cursor"])
-         
-  s_fileId = searching("filename")
-  u_fileId = uploading("anycolor_followers",s_fileId,ids)
-  permissioning(u_fileId)
+
+---
+#フォロワーを全件取得後、ドライブに保存します
+s_fileId = searching("filename")
+u_fileId = uploading("anycolor_followers",s_fileId,ids)
+permissioning(u_fileId)
