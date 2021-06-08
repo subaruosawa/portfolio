@@ -1,22 +1,26 @@
-pip install japanize-matplotlib
+#ネットワーク分析をする際に使うnetworkXのテンプレートをまとめました。
+#想定環境:Google Colaboratory
 
+
+pip install japanize-matplotlib
+---
 import json
 import matplotlib.pyplot as plt
 import japanize_matplotlib
 import networkx as nx
 from community import community_louvain
 import community
-
+---
 #ファイルをダウンロードする関数
 def download(file_name):
   with open("/content/drive/My Drive/"+file_name+".json") as f:
   return json.load(f)
-
+---
 node_name = download("node_name")#ノードの名前をダウンロード
 node_count = download("node_count")#ノードの大きさを表す数値をダウンロード
 name_A = download("node_name")#組み合わせの一方を用意する
 name_B = download("node_name")#組み合わせのもう一方を用意する
-
+---
 #ネットワーク分析図を作る
 G = nx.Graph()
 #ノードを作成する
@@ -32,12 +36,6 @@ for a in name_A:
      G.add_edge(alpha,beta)
   del name_beta[0]
   
-#次数(繋がるエッジの数)によってノードを消すことができる
-'''
-for name,deg in list(G.degree):
-  if deg <= 1:
-    G.remove_node(name)
-'''
 #ネットワーク図を描画する
 plt.figure(figsize=(15,15))
 pos = nx.spring_layout(G, k=0.2)
