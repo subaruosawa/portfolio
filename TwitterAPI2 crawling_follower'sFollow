@@ -1,11 +1,18 @@
+#このコードは、「前回取得したフォロワーのフォロー先を取得する」ものです。
+#前半はGoogleDrive_Tipsで載せた、ドライブ連携で必要なコードを書いています。
+#---
+#---
+#---のように、3列続いた区切り線より下部が本題の内容です。
 #想定環境:Google Cloud Functions
 ---
 #requirements.txt
+#今回必要なパッケージ
 google-cloud-pubsub
 google-auth
 google-api-python-client
 ---
 #credentilals.json
+#Google認証情報を用意
 {
   "type": "service_account",
   "project_id": "project_id",
@@ -18,29 +25,21 @@ google-api-python-client
   "auth_provider_x509_cert_url": "auth_provider_x509_cert_url",
   "client_x509_cert_url": "client_x509_cert_url"
 }
----  
+---
+#main.py
+import base64
+import json
+from google.cloud import pubsub_v1
 import os.path
 from googleapiclient.discovery import build
 import google.auth
 import io
 from apiclient.http import MediaIoBaseDownload
 from apiclient.http import MediaIoBaseUpload
-#認証コード
-SCOPES = ["https://www.googleapis.com/auth/drive"]
-scoped, project = google.auth.load_credentials_from_file("/content/credentials.json",scopes=SCOPES)
-service = build("drive", "v3", credentials=scoped)
----
-#main.py
-import base64
-import json
-from google.cloud import pubsub_v1
-from googleapiclient.discovery import build
-import google.auth
-import io
-from apiclient.http import MediaIoBaseDownload
-from apiclient.http import MediaIoBaseUpload
 
+#pubsubの前準備
 publisher = pubsub_v1.PublisherClient()
+#Google認証コード
 SCOPES = ["https://www.googleapis.com/auth/drive"]
 scoped, project = google.auth.load_credentials_from_file("/workspace/credentials.json",scopes=SCOPES)
 service = build("drive", "v3", credentials=scoped)
@@ -119,7 +118,8 @@ def permissioning(fileid):
       body=user_permission,
       fields='id'
       ).execute()
-      
+
+#TwitterAPIと連携
 from requests_oauthlib import OAuth1Session
 CONSUMER_KEY = "f2OipTFPTd5GW3b5pprirfmds"
 CONSUMER_SECRET = "heigP5zUimK8kDCa5HpHciLKTJFNkEe5NE5aD4KdvCGrmvHNp6"
@@ -127,20 +127,25 @@ ACCESS_TOKEN = "1003278744-BQwKlGx24A6Mte4AXu81qpCWXUu5ZAn89e44HFB"
 ACCESS_TOKEN_SECRET = "uMxFIvMFDlZb3QusQzYUY0rTfjzw7NjQR1e2Sg2XikZbw"
 twitter = OAuth1Session(CONSUMER_KEY,CONSUMER_SECRET,ACCESS_TOKEN,ACCESS_TOKEN_SECRET)
 url = "https://api.twitter.com/1.1/friends/ids.json"
-
+---
+---
+---
+#下記のコードでフォロー先を継続的に取得します。
+#TwitterAPIは15分毎に使用制限がかかりますので、それに引っかかった際は960秒間sleepさせるfunctionsに飛ばします。
+#一回のリクエストで5000件取得できます。
 def hello_pubsub(event, context):
-  pubsub_message = base64.b64decode(event['data']).decode('utf-8')
+  pubsub_message = base64.b64decode(event['data']).decode('utf-8')#pubsubから送られてくるフォロワーIDを確認
   follower = pubsub_message
 
   ids = []
   params = {
-    "screen_name":follower,
-    "count":5000
+    "screen_name":follower,#フォロワーIDを指定
+    "count":5000#5000件取得する
     }
   twitter = OAuth1Session(CONSUMER_KEY,CONSUMER_SECRET,ACCESS_TOKEN,ACCESS_TOKEN_SECRET)
   r = twitter.get(url,params=params)
 
-  if "errors" in r.json():
+  if "errors" in r.json():#使用制限に引っかかり、エラーを検知した場合は別functionsに飛ばして960秒間sleepさせる
     publishing("sleep",str(0)+follower)
     
   elif not "errors" in r.json():
@@ -148,11 +153,12 @@ def hello_pubsub(event, context):
     if data["ids"]:
       for i in data["ids"]:
         ids.append(i)
-
+    
+    #フォロー先を全件取得後、ドライブに保存します
     s_fileId = searching(follower)
     u_fileId = uploading(follower+"follow",s_fileId,ids)
     permissioning(u_fileId)
-
+    #事前に用意した次の調べたいフォロワーをダウンロードして、pubsubに送ります。
     s_fileId = searching("next_"follower+".json")
     next_follower = downloading(s_fileId)
     publishing("follower",str(0)+next_follower[0])
