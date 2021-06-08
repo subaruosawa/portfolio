@@ -1,13 +1,18 @@
+#想定環境:Google Colaboratory
+---の区切りごとに実行しています。
+
+#必要なパッケージをインストール
 pip install google-auth
 pip install google-api-python-client
-
+---
 import json
 #認証情報をディレクトリに用意する
 with open("/content/drive/MyDrive/credentials.json") as f:
   credentials = json.load(f)
 with open("credentials.json","w") as f:
   json.dump(credentials,f,indent=4,ensure_ascii=False)
-  
+---
+#認証する際のお決まりのコード
 import os.path
 from googleapiclient.discovery import build
 import google.auth
@@ -16,9 +21,9 @@ from apiclient.http import MediaIoBaseDownload
 from apiclient.http import MediaIoBaseUpload
 #認証コード
 SCOPES = ["https://www.googleapis.com/auth/drive"]
-scoped, project = google.auth.load_credentials_from_file("/content/credentials.json",scopes=SCOPES)
+scoped, project = google.auth.load_credentials_from_file("/content/credentials.json",scopes=SCOPES)#サービスアカウントで認証してます。
 service = build("drive", "v3", credentials=scoped)
-
+---
 #ファイルのIDをサーチ
 def searching(searchName):
   search = service.files().list(
@@ -61,17 +66,19 @@ def uploading(uploadName,fileid,content):
   return u_fileId
 
 #フォルダ下にフォルダを作成
-def creating(createName,fileid):
+def foldering(folderName,fileid):
   file_metadata = {
-    'name':createName,
+    'name':folderName,
     'parents':[fileid],
     'mimeType': 'application/vnd.google-apps.folder'
     }
-  created = service.files().create(
+  folder = service.files().create(
     body = file_metadata
     ).execute()
+  f_fileId = folder["id"]
+  return f_fileId
 
-#ファイルに編集権限を与える
+#ファイルに編集権限を与える(ドライブアプリで参照できるようにしています。認証に使用したアドレスとドライブ権限のアドレスが異なるため、、)
 def permissioning(str(MAIL_ADDRESS),fileid):
   user_permission = {
     'type': 'user',
