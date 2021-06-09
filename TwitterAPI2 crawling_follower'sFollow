@@ -92,20 +92,6 @@ def uploading(uploadName,fileid,content):
   u_fileId = upload["id"]
   return u_fileId
 
-#フォルダ下にフォルダを作成
-def foldering(folderName,fileid):
-  file_metadata = {
-    'name':folderName,
-    'parents':[fileid],
-    'mimeType': 'application/vnd.google-apps.folder'
-    }
-  folder = service.files().create(
-    body = file_metadata,
-    fields='id'
-    ).execute()
-  f_fileId = folder["id"]
-  return f_fileId
-
 #ファイルに編集権限を与える
 def permissioning(fileid):
   user_permission = {
@@ -126,6 +112,7 @@ CONSUMER_SECRET = "heigP5zUimK8kDCa5HpHciLKTJFNkEe5NE5aD4KdvCGrmvHNp6"
 ACCESS_TOKEN = "1003278744-BQwKlGx24A6Mte4AXu81qpCWXUu5ZAn89e44HFB"
 ACCESS_TOKEN_SECRET = "uMxFIvMFDlZb3QusQzYUY0rTfjzw7NjQR1e2Sg2XikZbw"
 twitter = OAuth1Session(CONSUMER_KEY,CONSUMER_SECRET,ACCESS_TOKEN,ACCESS_TOKEN_SECRET)
+#取得する情報を”フォロー”に指定します。
 url = "https://api.twitter.com/1.1/friends/ids.json"
 ---
 ---
@@ -134,20 +121,23 @@ url = "https://api.twitter.com/1.1/friends/ids.json"
 #TwitterAPIは15分毎に使用制限がかかりますので、それに引っかかった際は960秒間sleepさせるfunctionsに飛ばします。
 #一回のリクエストで5000件取得できます。
 def hello_pubsub(event, context):
-  pubsub_message = base64.b64decode(event['data']).decode('utf-8')#pubsubから送られてくるフォロワーIDを確認
+  #pubsubから送られてくるフォロワーIDを確認
+  pubsub_message = base64.b64decode(event['data']).decode('utf-8')
   follower = pubsub_message
 
+  #フォロワーIDを指定して、5000件の取得を開始
   ids = []
   params = {
-    "screen_name":follower,#フォロワーIDを指定
-    "count":5000#5000件取得する
+    "screen_name":follower,
+    "count":5000
     }
   twitter = OAuth1Session(CONSUMER_KEY,CONSUMER_SECRET,ACCESS_TOKEN,ACCESS_TOKEN_SECRET)
   r = twitter.get(url,params=params)
-
-  if "errors" in r.json():#使用制限に引っかかり、エラーを検知した場合は別functionsに飛ばして960秒間sleepさせる
+  
+  #使用制限に引っかかり、エラーを検知した場合は別functionsに飛ばして960秒間sleepさせる
+  if "errors" in r.json():
     publishing("sleep",str(0)+follower)
-    
+  #フォロー先のIDを取得
   elif not "errors" in r.json():
     data = r.json()
     if data["ids"]:
@@ -158,7 +148,8 @@ def hello_pubsub(event, context):
     s_fileId = searching(follower)
     u_fileId = uploading(follower+"follow",s_fileId,ids)
     permissioning(u_fileId)
-    #事前に用意した次の調べたいフォロワーをダウンロードして、pubsubに送ります。
+    #事前に用意した、次に調べたいフォロワーをダウンロードしてpubsubに送ります。
+    #pubsubの送り先はこのFunctionsであるため、このFunctionsを何度も使いまわしてクローリングしていきます。
     s_fileId = searching("next_"follower+".json")
     next_follower = downloading(s_fileId)
     publishing("follower",str(0)+next_follower[0])
