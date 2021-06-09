@@ -1,7 +1,7 @@
 #Google Drive APIを使う際の関数をまとめました。
 #想定環境:Google Colaboratory
 ---の区切りごとに実行しています。
-
+---
 #必要なパッケージをインストール
 pip install google-auth
 pip install google-api-python-client
@@ -13,16 +13,16 @@ with open("/content/drive/MyDrive/credentials.json") as f:
 with open("credentials.json","w") as f:
   json.dump(credentials,f,indent=4,ensure_ascii=False)
 ---
-#認証する際のお決まりのコード
+#認証する際のお決まりのライブラリ
 import os.path
 from googleapiclient.discovery import build
 import google.auth
 import io
 from apiclient.http import MediaIoBaseDownload
 from apiclient.http import MediaIoBaseUpload
-#認証コード
+#認証コード(サービスアカウントで認証してます。)
 SCOPES = ["https://www.googleapis.com/auth/drive"]
-scoped, project = google.auth.load_credentials_from_file("/content/credentials.json",scopes=SCOPES)#サービスアカウントで認証してます。
+scoped, project = google.auth.load_credentials_from_file("/content/credentials.json",scopes=SCOPES)
 service = build("drive", "v3", credentials=scoped)
 ---
 #ファイルのIDをサーチ
@@ -86,9 +86,11 @@ def permissioning(str(MAIL_ADDRESS),fileid):
     'role': 'writer',
     'emailAddress': 'MAIL_ADDRESS'
   }
-  permission = service.permissions().create(fileId=fileid,
-                                            body=user_permission,
-                                            fields='id').execute()
+  permission = service.permissions().create(
+    fileId=fileid,
+    body=user_permission,
+    fields='id'
+    ).execute()
 
 #ファイルを更新する      
 def updating(content,fileid):
