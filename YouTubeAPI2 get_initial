@@ -1,5 +1,12 @@
+#このコードは、「YouTubeのFeedsページにアクセスし、新しく投稿された動画のIDを取得する」ものです。
+#前半はGoogleDrive_Tipsで載せた、ドライブ連携で必要なコードを書いています。
+#---
+#---
+#---のように、3列続いた区切り線より下部が本題の内容です。
 #想定環境:Google Cloud Functions
 ---
+#requirements.txt
+#今回必要なパッケージ
 requests
 beautifulsoup4
 google-cloud-pubsub
@@ -7,6 +14,7 @@ google-auth
 google-api-python-client
 ---
 #credentilals.json
+#Google認証情報を用意
 {
   "type": "service_account",
   "project_id": "project_id",
@@ -32,10 +40,10 @@ from apiclient.http import MediaIoBaseDownload
 from apiclient.http import MediaIoBaseUpload
 import requests
 from bs4 import BeautifulSoup
-import datetime
-import dateutil.parser
 
+#pubsubの前準備
 publisher = pubsub_v1.PublisherClient()
+#Google認証コード
 SCOPES = ["https://www.googleapis.com/auth/drive"]
 scoped, project = google.auth.load_credentials_from_file("/workspace/credentials.json",scopes=SCOPES)
 service = build("drive", "v3", credentials=scoped)
@@ -133,16 +141,19 @@ def updating(content,fileid):
   return d_fileId
 
 def hello_pubsub(event, context):
+  #pubsubから送られてくるチャンネルIDとビデオIDを確認
   pubsub_message = base64.b64decode(event['data']).decode('utf-8')
   channelId = pubsub_message[:24]
   videoId = pubsub_message[24:]
-
+  
+  #動画ページへアクセスします。チャット情報は数珠つなぎになっているため、まずはその先頭のデータを取得します。
   session = requests.Session()
   headers = {'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.116 Safari/537.36'}
   target_url = "https://www.youtube.com/watch?v="+videoId
   html = session.get(target_url, headers=headers)
   soup = BeautifulSoup(html.text, 'html.parser')
 
+  #取得したHTMLから必要な部分を抽出
   for script in soup.find_all('script'):
     script_text = str(script)
     if 'ytInitialData' in script_text:
@@ -154,7 +165,9 @@ def hello_pubsub(event, context):
             else:
               InitialData = str(line).encode("utf-8")
               uploading(videoId,videoId+"_initialData.json",InitialData)
-
+  
+  #目的のデータがあった場合、次のFunctionsへチャンネルIDとビデオIDと先頭データを飛ばす
+  #「ビデオID_chat」というフォルダを作る
   if "conversationBar" in ytInitialData["contents"]["twoColumnWatchNextResults"]:
     continuation = ytInitialData["contents"]["twoColumnWatchNextResults"]["conversationBar"]["liveChatRenderer"]["header"]["liveChatHeaderRenderer"]["viewSelector"]["sortFilterSubMenuRenderer"]["subMenuItems"][0]["continuation"]["reloadContinuationData"]["continuation"]
     
@@ -162,13 +175,13 @@ def hello_pubsub(event, context):
     s_fileId = searching(channelId)
     f_fileId = foldering(videoId+"_chat",s_fileId)
     permissioning(f_fileId)
-
+  #目的のデータがなく、「イニシャルバー」が異常であった場合、その旨を伝えるデータをアップロードする
   elif not "conversationBar" in ytInitialData["contents"]["twoColumnWatchNextResults"]:
     InitialBar = ytInitialData["contents"]["twoColumnWatchNextResults"].encode("utf-8")
     s_fileId = (videoId)
     u_fileId = uploading(videoId+"_initialBar.json",s_fileId,InitialBar)
     permissioning(u_fileId)
-
+  #それ以外の場合、エラーがあったことを伝えるデータをアップロードする
   else:
     s_fileId = (videoId)
     u_fileId = uploading(videoId+"_initialOther.json",s_fileId,videoId)
