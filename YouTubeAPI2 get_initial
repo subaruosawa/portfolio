@@ -66,17 +66,6 @@ def searching(fileName):
   fileId = [i["id"] for i in search["files"]]
   return fileId
 
-#ファイルをダウンロード
-def downloading(fileid):
-  download = service.files().get_media(fileId=fileid)
-  fh = io.BytesIO()
-  downloader = MediaIoBaseDownload(fh, download)
-  done = False
-  while done is False:
-    status, done = downloader.next_chunk()
-  content = fh.getvalue().decode("utf-8").split(" ")
-  return content
-
 #ファイルをアップロード
 def uploading(uploadName,fileid,content):
   metadata = {
@@ -124,24 +113,9 @@ def permissioning(fileid):
       body=user_permission,
       fields='id'
       ).execute()
-      
-#ファイルを更新する      
-def updating(content,fileid):
-  str_content = []  
-  for i in content:
-    str_content.append(str(i))
-  joins = " ".join(str_content)
-  encoder = joins.encode("utf-8")
-  fh = io.BytesIO(encoder)
-  media = MediaIoBaseUpload(fh, mimetype="application/json")
-  updated = service.files().update(
-    fileId=fileid,
-    fields='id',
-    media_body=media
-    ).execute()
-  d_fileId = upload["id"]
-  return d_fileId
-
+---
+---
+---
 def hello_pubsub(event, context):
   #pubsubから送られてくるチャンネルIDとビデオIDを確認
   pubsub_message = base64.b64decode(event['data']).decode('utf-8')
