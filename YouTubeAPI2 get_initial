@@ -1,4 +1,5 @@
-#このコードは、「YouTubeのFeedsページにアクセスし、新しく投稿された動画のIDを取得する」ものです。
+#このコードは、「YouTubeの動画ページにアクセスし、チャットデータの先頭を取得する」ものです。
+#(チャットデータは数珠つなぎになっているため、まずは先頭データをそれ用のプログラムで取得します。)
 #前半はGoogleDrive_Tipsで載せた、ドライブ連携で必要なコードを書いています。
 #---
 #---
@@ -29,6 +30,7 @@ google-api-python-client
 }
 ---
 #main.py
+#必要なライブラリ
 import base64
 import json
 from google.cloud import pubsub_v1
@@ -166,8 +168,8 @@ def hello_pubsub(event, context):
               InitialData = str(line).encode("utf-8")
               uploading(videoId,videoId+"_initialData.json",InitialData)
   
-  #目的のデータがあった場合、次のFunctionsへチャンネルIDとビデオIDと先頭データを飛ばす
-  #「ビデオID_chat」というフォルダを作る
+  #目的のデータがあった場合、チャンネルIDとビデオIDと先頭データを次のFunctionsへ飛ばす
+  #さらに「ビデオID_chat」というフォルダを作る
   if "conversationBar" in ytInitialData["contents"]["twoColumnWatchNextResults"]:
     continuation = ytInitialData["contents"]["twoColumnWatchNextResults"]["conversationBar"]["liveChatRenderer"]["header"]["liveChatHeaderRenderer"]["viewSelector"]["sortFilterSubMenuRenderer"]["subMenuItems"][0]["continuation"]["reloadContinuationData"]["continuation"]
     
