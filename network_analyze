@@ -1,9 +1,10 @@
 #ネットワーク分析をする際に使うnetworkXのテンプレートをまとめました。
 #想定環境:Google Colaboratory
 
-
+#必要なパッケージをインストール
 pip install japanize-matplotlib
 ---
+#必要なライブラリ
 import json
 import matplotlib.pyplot as plt
 import japanize_matplotlib
@@ -11,7 +12,7 @@ import networkx as nx
 from community import community_louvain
 import community
 ---
-#ファイルをダウンロードする関数
+#ディレクトリのファイルをダウンロードする関数
 def download(file_name):
   with open("/content/drive/My Drive/"+file_name+".json") as f:
   return json.load(f)
