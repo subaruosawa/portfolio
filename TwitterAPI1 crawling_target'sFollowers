@@ -1,25 +1,26 @@
-#このコードは、「APIを使って調べたいTwitterアカウントのフォロワーを取得する」ものです。
+#このコードは、「APIを使って、調べたいTwitterアカウントのフォロワーを取得する」ものです。
 #前半はGoogleDrive_Tipsで載せた、ドライブ連携で必要なコードを書いています
 #---
 #---
 #---のように、3列続いた区切り線より下部が本題の内容です。
 #想定環境:Google Colaboratory
 ---
+#必要なパッケージをインストール
 pip install google-auth
 pip install google-api-python-client
 ---
-##認証情報をディレクトリに用意します。
+#認証情報をディレクトリに用意
 import json
 with open("/content/drive/MyDrive/credentials.json") as f:
   credentials = json.load(f)
 with open("credentials.json","w") as f:
   json.dump(credentials,f,indent=4,ensure_ascii=False)
----  
+---
+#認証する際のお決まりのライブラリ
 import os.path
 from googleapiclient.discovery import build
 import google.auth
 import io
-from apiclient.http import MediaIoBaseDownload
 from apiclient.http import MediaIoBaseUpload
 #認証コード
 SCOPES = ["https://www.googleapis.com/auth/drive"]
@@ -34,17 +35,6 @@ def searching(fileName):
     ).execute()
   fileId = [i["id"] for i in search["files"]]
   return fileId
-
-#ファイルをダウンロード
-def downloading(fileid):
-  download = service.files().get_media(fileId=fileid)
-  fh = io.BytesIO()
-  downloader = MediaIoBaseDownload(fh, download)
-  done = False
-  while done is False:
-    status, done = downloader.next_chunk()
-  content = fh.getvalue().decode("utf-8").split(" ")
-  return content
 
 #ファイルをアップロード
 def uploading(uploadName,fileid,content):
@@ -66,20 +56,6 @@ def uploading(uploadName,fileid,content):
     ).execute()
   u_fileId = upload["id"]
   return u_fileId
-
-#フォルダ下にフォルダを作成
-def foldering(folderName,fileid):
-  file_metadata = {
-    'name':folderName,
-    'parents':[fileid],
-    'mimeType': 'application/vnd.google-apps.folder'
-    }
-  folder = service.files().create(
-    body = file_metadata,
-    fields='id'
-    ).execute()
-  f_fileId = folder["id"]
-  return f_fileId
 
 #ファイルに編集権限を与える
 def permissioning(fileid):
@@ -104,7 +80,8 @@ CONSUMER_SECRET = "CONSUMER_SECRET"
 ACCESS_TOKEN = "ACCESS_TOKEN"
 ACCESS_TOKEN_SECRET = "ACCESS_TOKEN_SECRET"
 twitter = OAuth1Session(CONSUMER_KEY,CONSUMER_SECRET,ACCESS_TOKEN,ACCESS_TOKEN_SECRET)
-url = "https://api.twitter.com/1.1/followers/ids.json"#こちらで取得する情報を”フォロワー”に指定します。
+#取得する情報を”フォロワー”に指定します。
+url = "https://api.twitter.com/1.1/followers/ids.json"
 ---
 #下記のコードでフォロワーを継続的に取得します。
 #TwitterAPIは15分毎に使用制限がかかりますので、それに引っかかった際は960秒間sleepさせます。
@@ -112,27 +89,27 @@ url = "https://api.twitter.com/1.1/followers/ids.json"#こちらで取得する�
 next_cursor = [None]
 ids = []
 while not next_cursor[-1] == 0:
-  params = {"screen_name":"@screen_name",#ここで調べたいアカウントを指定
-            "cursor":next_cursor[-1],#ネクストページトークンを指定
-            "count":5000#取得する数
+  params = {"screen_name":"@screen_name",
+            "cursor":next_cursor[-1],
+            "count":5000
             }
   twitter = OAuth1Session(CONSUMER_KEY,CONSUMER_SECRET,ACCESS_TOKEN,ACCESS_TOKEN_SECRET)
   r = twitter.get(url,params=params)
-
-  if "errors" in r.json():#使用制限に引っかかり、エラーを検知した場合は960秒間sleep
+  
+  #使用制限に引っかかり、エラーを検知した場合は960秒間sleep
+  if "errors" in r.json():
     print(str(r.json()))
     time.sleep(960)
-
+  #フォロワーのIDを取得
   elif not "errors" in r.json():
-    data = r.json()
-      
+    data = r.json()  
     if data["ids"]:
       for i in data["ids"]:
         ids.append(i)
     elif not data["ids"]:
       print(data["ids"])
     
-    #通常、ネクストページトークンは数字の羅列が渡されますが、次のネクストページトークンがない場合、0が渡されます。
+    #次の5000件を取得するためのトークンを確認する。無かった場合、クローリングを停止する
     if data["next_cursor"] != 0:
       next_cursor.append(data["next_cursor"])
     elif data["next_cursor"] == 0:
@@ -140,7 +117,7 @@ while not next_cursor[-1] == 0:
       print(data["next_cursor"])
 
 ---
-#フォロワーを全件取得後、ドライブに保存します
+#フォロワーを全件取得後、ドライブに保存
 s_fileId = searching("filename")
 u_fileId = uploading("anycolor_followers",s_fileId,ids)
 permissioning(u_fileId)
