@@ -148,10 +148,12 @@ def updating(content,fileid):
 ---
 
 def hello_pubsub(event, context):
-  pubsub_message = base64.b64decode(event['data']).decode('utf-8')#pubsubから送られてくるチャンネルIDを確認
+  #pubsubから送られてくるチャンネルIDを確認
+  pubsub_message = base64.b64decode(event['data']).decode('utf-8')
   channelId = pubsub_message
-
-  target_url = "https://www.youtube.com/feeds/videos.xml?channel_id="+channelId#YouTubeのFeedsページへアクセス
+  
+  #YouTubeのFeedsページへアクセス
+  target_url = "https://www.youtube.com/feeds/videos.xml?channel_id="+channelId
   req = requests.get(target_url)
   soup = BeautifulSoup(req.text, 'html.parser')
 
@@ -167,20 +169,26 @@ def hello_pubsub(event, context):
   for elem in elems[1:]:
     title.append(elem.contents[0])
 
+  #投稿日を取得(ISO形式という特殊な形式のデータが取得できます)
   elems = soup.find_all("updated")
   iso_updated = []
   for elem in elems:
     iso_updated.append(elem.contents[0])
 
+  #ISO形式の投稿日データを日本時間に変換します
   JST = datetime.timezone(datetime.timedelta(hours=+9), 'JST')
   now = datetime.datetime.now(JST)
   dt_updated = []
   for n in range(len(iso_updated)):
     dt_updated.append(dateutil.parser.parse(iso_updated[n]).astimezone(JST))
 
+  #事前に用意してある過去の動画情報のデータを引っ張ってきます
   s_fileId = searching(channelId+"_archives.json")
   archives = downloading(s_fileId)
 
+  #過去にまだ取得しておらず、投稿日から一日経過しているデータを抽出します。
+  #そして、そのビデオIDを名前にしたフォルダを作成します。
+  #最後にそのビデオIDをpubsubで次のFunctionsに飛ばします
   for n in range(len(videoId)):
     oneday = now - dt_updated[n]
     if oneday > datetime.timedelta(days=1):
@@ -193,7 +201,7 @@ def hello_pubsub(event, context):
         f_fileId = foldering(videoId[n],s_fileId)
         permissioning(f_fileId)
 
-  Q = 'name = "'+channelId+'"'
+  #過去の動画情報のデータを更新します。
   s_fileId = searching("channelId")
   d_fileId = updating(archives,s_fileId)
   permissioning(d_fileId)
