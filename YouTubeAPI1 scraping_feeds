@@ -1,5 +1,5 @@
-  
-#このコードは、「YouTubeのFeedsページにアクセスし、新しく投稿された動画のIDを取得する」ものです。
+#このコードは、「YouTubeのFeed#フォロワーのIDを取得ページにアクセスし、新しく投稿された動画のIDを取得する」ものです。
+#(Feedでは動画情報が文字の状態で羅列されているページです。)
 #前半はGoogleDrive_Tipsで載せた、ドライブ連携で必要なコードを書いています。
 #---
 #---
@@ -31,6 +31,7 @@ google-api-python-client
 }
 ---  
 #main.py
+#必要なライブラリ
 import base64
 import json
 from google.cloud import pubsub_v1
@@ -78,27 +79,6 @@ def downloading(fileid):
     status, done = downloader.next_chunk()
   content = fh.getvalue().decode("utf-8").split(" ")
   return content
-
-#ファイルをアップロード
-def uploading(uploadName,fileid,content):
-  metadata = {
-    "name": uploadName,
-    "parents": [fileid]
-    }
-  str_content = []  
-  for i in content:
-    str_content.append(str(i))
-  joins = " ".join(str_content)
-  encoder = joins.encode('utf-8')
-  fh = io.BytesIO(encoder)
-  media = MediaIoBaseUpload(fh, mimetype='application/json')
-  upload = service.files().create(
-    body = metadata,
-    media_body=media,
-    fields='id'
-    ).execute()
-  u_fileId = upload["id"]
-  return u_fileId
 
 #フォルダ下にフォルダを作成
 def foldering(folderName,fileid):
@@ -152,7 +132,7 @@ def hello_pubsub(event, context):
   pubsub_message = base64.b64decode(event['data']).decode('utf-8')
   channelId = pubsub_message
   
-  #YouTubeのFeedsページへアクセス
+  #チャンネルIDをもとにYouTubeのFeedページへアクセス
   target_url = "https://www.youtube.com/feeds/videos.xml?channel_id="+channelId
   req = requests.get(target_url)
   soup = BeautifulSoup(req.text, 'html.parser')
@@ -162,12 +142,6 @@ def hello_pubsub(event, context):
   videoId = []
   for elem in elems[1:]:
     videoId.append(elem.contents[0])
-  
-  #タイトルを取得
-  elems = soup.find_all("title")
-  title = []
-  for elem in elems[1:]:
-    title.append(elem.contents[0])
 
   #投稿日を取得(ISO形式という特殊な形式のデータが取得できます)
   elems = soup.find_all("updated")
