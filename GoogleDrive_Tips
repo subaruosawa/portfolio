@@ -80,7 +80,7 @@ def foldering(folderName,fileid):
   return f_fileId
 
 #ファイルに編集権限を与える(ドライブアプリで参照できるようにしています。認証に使用したアドレスとドライブ権限のアドレスが異なるため、、)
-def permissioning(str(MAIL_ADDRESS),fileid):
+def permissioning(fileid):
   user_permission = {
     'type': 'user',
     'role': 'writer',
