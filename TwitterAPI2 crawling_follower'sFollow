@@ -128,7 +128,7 @@ def hello_pubsub(event, context):
   #フォロワーIDを指定して、5000件の取得を開始
   ids = []
   params = {
-    "screen_name":follower,
+    "user_id":follower,
     "count":5000
     }
   twitter = OAuth1Session(CONSUMER_KEY,CONSUMER_SECRET,ACCESS_TOKEN,ACCESS_TOKEN_SECRET)
