@@ -35,7 +35,7 @@ def searching(searchName):
   return fileId
 
 #ファイルをダウンロード
-def downloading(fileid):
+def downloading(fileid[0]):
   download = service.files().get_media(fileId=fileid)
   fh = io.BytesIO()
   downloader = MediaIoBaseDownload(fh, download)
