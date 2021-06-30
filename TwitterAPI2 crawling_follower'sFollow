@@ -10,6 +10,7 @@
 google-cloud-pubsub
 google-auth
 google-api-python-client
+requests
 ---
 #credentilals.json
 #Google認証情報を用意
