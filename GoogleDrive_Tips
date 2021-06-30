@@ -70,7 +70,7 @@ def uploading(uploadName,fileid,content):
 def foldering(folderName,fileid):
   file_metadata = {
     'name':folderName,
-    'parents':[fileid],
+    'parents':fileid,
     'mimeType': 'application/vnd.google-apps.folder'
     }
   folder = service.files().create(
